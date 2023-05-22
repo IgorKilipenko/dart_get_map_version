@@ -1,4 +1,5 @@
 #include "dart_get_map_version.h"
+#include "map_version_info.h"
 
 // A very short-lived native function.
 //
