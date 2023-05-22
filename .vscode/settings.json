@@ -1,3 +1,14 @@
 {
+    "cmake.configureSettings": {
+        "CMAKE_BUILD_TYPE": "Debug"
+    },
+    "[cpp]": {
+        "editor.suggestSelection": "recentlyUsedByPrefix",
+        "editor.tabCompletion": "on",
+        "editor.suggest.shareSuggestSelections": true,
+        "editor.inlayHints.enabled": "offUnlessPressed",
+        "editor.suggest.showSnippets": true
+    },
+    "cSpell.words": ["dylib"],
     "cmake.sourceDirectory": "/home/igor/git/dart_get_map_version/src"
 }
