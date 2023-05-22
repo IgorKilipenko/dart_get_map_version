@@ -10,5 +10,5 @@
         "editor.suggest.showSnippets": true
     },
     "cSpell.words": ["dylib"],
-    "cmake.sourceDirectory": "/home/igor/git/dart_get_map_version/src"
+    "cmake.sourceDirectory": "${workspaceFolder}/src"
 }
