@@ -9,6 +9,11 @@
         "editor.inlayHints.enabled": "offUnlessPressed",
         "editor.suggest.showSnippets": true
     },
-    "cSpell.words": ["dylib"],
+    "cSpell.words": [
+        "calloc",
+        "dylib",
+        "ffigen",
+        "gmap"
+    ],
     "cmake.sourceDirectory": "${workspaceFolder}/src"
 }
