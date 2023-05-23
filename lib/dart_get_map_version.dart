@@ -54,25 +54,33 @@ final DynamicLibrary _dylib = () {
 /// The bindings to the native functions in [_dylib].
 final DartGetMapVersionBindings _bindings = DartGetMapVersionBindings(_dylib);
 
+class _CppRequest {
+  final int id;
+  const _CppRequest(this.id);
+}
+
 /// A request to compute `sum`.
 ///
 /// Typically sent from one isolate to another.
-class _SumRequest {
-  final int id;
+class _SumRequest extends _CppRequest {
   final int a;
   final int b;
 
-  const _SumRequest(this.id, this.a, this.b);
+  const _SumRequest(super.id, this.a, this.b);
+}
+
+class _CppResponse<T> {
+  final int id;
+  final T result;
+
+  const _CppResponse(this.id, this.result);
 }
 
 /// A response with the result of `sum`.
 ///
 /// Typically sent from one isolate to another.
-class _SumResponse {
-  final int id;
-  final int result;
-
-  const _SumResponse(this.id, this.result);
+class _SumResponse extends _CppResponse<int> {
+  const _SumResponse(super.id, super.result);
 }
 
 /// Counter to identify [_SumRequest]s and [_SumResponse]s.
@@ -131,6 +139,60 @@ Future<SendPort> _helperIsolateSendPort = () async {
   return completer.future;
 }();
 
+class _IsolateMessage<T, TRequest> {
+  final SendPort sendPort;
+  final T Function(TRequest) action;
+  const _IsolateMessage(this.sendPort, this.action);
+}
+
+class _IsolateSender<T extends String> {
+  final Map<int, Completer<T>> _requests = <int, Completer<T>>{};
+
+  void set(int id, Completer<T> completer) {
+    _requests[id] = completer;
+  }
+
+  static void _runIsolate<T, TRequest extends _CppRequest>(_IsolateMessage<T, TRequest> msg) {
+    final helperReceivePort = ReceivePort()
+      ..listen((dynamic data) {
+        if (data is TRequest) {
+          final result = msg.action(data);
+          final response = _CppResponse<T>(data.id, result);
+          msg.sendPort.send(response);
+          return;
+        }
+        throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
+      });
+
+    msg.sendPort.send(helperReceivePort.sendPort);
+  }
+
+  Future<SendPort> sendPort<TRequest extends _CppRequest>(
+      T Function(TRequest) action) async {
+    final completer = Completer<SendPort>();
+
+    final ReceivePort receivePort = ReceivePort()
+      ..listen((dynamic data) {
+        if (data is SendPort) {
+          completer.complete(data);
+          return;
+        }
+        if (data is _CppResponse<T>) {
+          final Completer<T> completer = _requests[data.id]!;
+          _sumRequests.remove(data.id);
+          completer.complete(data.result);
+          return;
+        }
+        throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
+      });
+
+    final msg = _IsolateMessage(receivePort.sendPort, action);
+    await Isolate.spawn(_runIsolate<T,TRequest>, msg);
+
+    return completer.future;
+  }
+}
+
 class MapVersionGetter {
   static String? getGmapVersion() {
     final res = using((Arena arena) {
@@ -142,5 +204,21 @@ class MapVersionGetter {
       return null;
     });
     return res;
+  }
+
+  int _nextRequestId = 0;
+  final sender = _IsolateSender<String>();
+
+  Future<String> getGmapVersionAsync() async {
+    String action(_CppRequest _) {
+      return getGmapVersion() ?? "error";
+    }
+
+    final completer = Completer<String>();
+    final request = _CppRequest(_nextRequestId++);
+    sender.set(request.id, completer);
+    final sendPort = await sender.sendPort<_CppRequest>(action);
+    sendPort.send(request);
+    return completer.future;
   }
 }
