@@ -1,8 +1,10 @@
-
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+//import 'dart:js_interop';
+import 'package:ffi/ffi.dart' as ffi_package;
+import 'package:ffi/ffi.dart';
 
 import 'dart_get_map_version_bindings_generated.dart';
 
@@ -51,7 +53,6 @@ final DynamicLibrary _dylib = () {
 
 /// The bindings to the native functions in [_dylib].
 final DartGetMapVersionBindings _bindings = DartGetMapVersionBindings(_dylib);
-
 
 /// A request to compute `sum`.
 ///
@@ -129,3 +130,17 @@ Future<SendPort> _helperIsolateSendPort = () async {
   // can start sending requests.
   return completer.future;
 }();
+
+class MapVersionGetter {
+  static String? getGmapVersion() {
+    final res = using((Arena arena) {
+      final outVersion = arena<Pointer<Utf8>>();
+      final success = _bindings.get_gmap_version(outVersion.cast());
+      if (success != 0) {
+        return outVersion.value.toDartString();
+      }
+      return null;
+    });
+    return res;
+  }
+}

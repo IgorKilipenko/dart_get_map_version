@@ -1,5 +1,6 @@
 #include "dart_get_map_version.h"
 #include "map_version_info.h"
+#include <memory>
 
 // A very short-lived native function.
 //
@@ -21,4 +22,17 @@ FFI_PLUGIN_EXPORT intptr_t sum_long_running(intptr_t a, intptr_t b) {
   usleep(5000 * 1000);
 #endif
   return a + b;
+}
+
+FFI_PLUGIN_EXPORT int get_gmap_version(char **out_version) {
+  maps::MapVersionInfo version_getter;
+  std::string version = "";
+  try {
+    version = version_getter.GetMapVersion();
+  } catch (...) {
+    return 0;
+  }
+  *out_version = new char[version.size() + 1]();
+  std::move(version.begin(), version.end(), *out_version);
+  return 1;
 }

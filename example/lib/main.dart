@@ -39,6 +39,12 @@ class _MyAppState extends State<MyApp> {
             padding: const EdgeInsets.all(10),
             child: Column(
               children: [
+                Text(
+                  'Map version: ${dart_get_map_version.MapVersionGetter.getGmapVersion()}',
+                  style: textStyle,
+                  textAlign: TextAlign.center,
+                ),
+                spacerSmall,
                 const Text(
                   'This calls a native function through FFI that is shipped as source in the package. '
                   'The native code is built as part of the Flutter Runner build.',
