@@ -145,14 +145,16 @@ class _IsolateMessage<T, TRequest> {
   const _IsolateMessage(this.sendPort, this.action);
 }
 
-class _IsolateSender<T extends String> {
+class IsolateSender<T extends String> {
   final Map<int, Completer<T>> _requests = <int, Completer<T>>{};
+  int _nextRequestId = 0;
 
-  void set(int id, Completer<T> completer) {
+  void _setRequest(int id, Completer<T> completer) {
     _requests[id] = completer;
   }
 
-  static void _runIsolate<T, TRequest extends _CppRequest>(_IsolateMessage<T, TRequest> msg) {
+  static void _runIsolate<T, TRequest extends _CppRequest>(
+      _IsolateMessage<T, TRequest> msg) {
     final helperReceivePort = ReceivePort()
       ..listen((dynamic data) {
         if (data is TRequest) {
@@ -167,7 +169,7 @@ class _IsolateSender<T extends String> {
     msg.sendPort.send(helperReceivePort.sendPort);
   }
 
-  Future<SendPort> sendPort<TRequest extends _CppRequest>(
+  Future<SendPort> _sendPort<TRequest extends _CppRequest>(
       T Function(TRequest) action) async {
     final completer = Completer<SendPort>();
 
@@ -187,8 +189,17 @@ class _IsolateSender<T extends String> {
       });
 
     final msg = _IsolateMessage(receivePort.sendPort, action);
-    await Isolate.spawn(_runIsolate<T,TRequest>, msg);
+    await Isolate.spawn(_runIsolate<T, TRequest>, msg);
 
+    return completer.future;
+  }
+
+  Future<T> send<TRequest extends _CppRequest>(T Function(TRequest) action) async {
+    final completer = Completer<T>();
+    final request = _CppRequest(_nextRequestId++);
+    _setRequest(request.id, completer);
+    final port = await _sendPort(action);
+    port.send(request);
     return completer.future;
   }
 }
@@ -206,19 +217,13 @@ class MapVersionGetter {
     return res;
   }
 
-  int _nextRequestId = 0;
-  final sender = _IsolateSender<String>();
+  final sender = IsolateSender<String>();
 
   Future<String> getGmapVersionAsync() async {
     String action(_CppRequest _) {
       return getGmapVersion() ?? "error";
     }
 
-    final completer = Completer<String>();
-    final request = _CppRequest(_nextRequestId++);
-    sender.set(request.id, completer);
-    final sendPort = await sender.sendPort<_CppRequest>(action);
-    sendPort.send(request);
-    return completer.future;
+    return sender.send(action);
   }
 }
